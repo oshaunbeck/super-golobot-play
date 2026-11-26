@@ -17,16 +17,25 @@
 // Discord sends the player back here (Supabase PKCE: ?code=...). Hand the
 // code to the game window that opened this pop-up, then close. The code is
 // useless without the secret the game kept, so posting it is safe.
+// The Home Screen app has no pop-ups: it comes here itself (jg_oauth in
+// localStorage) and gets sent back with the code in localStorage.
 (function () {
   var q = new URLSearchParams(location.search);
   var h = new URLSearchParams(location.hash.replace(/^#/, ''));
   var code = q.get('code') || '';
   var err = q.get('error_description') || h.get('error_description') || q.get('error') || h.get('error') || '';
   var msg = document.getElementById('msg');
+  function hasPending() { try { return !!localStorage.getItem('jg_oauth'); } catch (e) { return false; } }
   if (window.opener && !window.opener.closed) {
     try { window.opener.postMessage({ jgAuth: true, code: code, error: err }, '*'); } catch (e) {}
     msg.innerHTML = code ? '<b>Signed in.</b> Going back to the game...' : 'Sign-in cancelled. You can close this window.';
     setTimeout(function () { window.close(); }, 600);
+  } else if (hasPending()) {
+    // the Home Screen app came here itself (no pop-up): leave the code for
+    // it and go back to the game, which finishes signing in
+    try { localStorage.setItem('jg_oauth_code', JSON.stringify({ code: code, error: err })); } catch (e) {}
+    msg.innerHTML = code ? '<b>Signed in.</b> Going back to the game...' : 'Sign-in cancelled. Going back to the game...';
+    location.replace(new URL('../', location.href).href);
   } else {
     msg.innerHTML = code ? '<b>Signed in.</b> You can close this tab and go back to the game.'
                          : 'Sign-in cancelled. You can close this tab.';
